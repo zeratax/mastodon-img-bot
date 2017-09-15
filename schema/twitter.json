@@ -5,16 +5,20 @@
     "required": ["consumer_key", "consumer_secret", "access_token", "access_token_secret"],
     "properties": {
         "access_token": {
-            "type": "string"
+            "type": "string",
+            "description": "see https://dev.twitter.com/webhooks/access-tokens"
         },
         "consumer_secret": {
-            "type": "string"
+            "type": "string",
+            "description": "see https://dev.twitter.com/webhooks/access-tokens"
         },
         "consumer_key": {
-            "type": "string"
+            "type": "string",
+            "description": "see https://dev.twitter.com/webhooks/access-tokens"
         },
         "access_token_secret": {
-            "type": "string"
+            "type": "string",
+            "description": "see https://dev.twitter.com/webhooks/access-tokens"
         }
     }
 }
