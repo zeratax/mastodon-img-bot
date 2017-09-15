@@ -5,15 +5,25 @@
     "properties": {
         "name": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "your mastodon bot's on screen name"
         },
         "description": {
             "type": "string",
-            "maxLength": 160
+            "maxLength": 160,
+            "description": "your mastodon bot's bio"
         },
         "access_token": {
             "type": "string",
             "description": "acces token for your bot account"
+        },
+        "client_id": {
+            "type": "string",
+            "description": "client id for your application"
+        },
+        "client_secret": {
+            "type": "string",
+            "description": "client secret for your application"
         },
         "domain": {
             "type": "string",
@@ -29,7 +39,8 @@
         },
         "db_path": {
             "type": "string",
-            "pattern": "^\\S+(\/[^\\s]+)*\\.json$"
+            "pattern": "^\\S+(\/[^\\s]+)*\\.json$",
+            "description": "path to a json file that acts as a database for your images"
         },
         "offset_min": {
             "type": "number",

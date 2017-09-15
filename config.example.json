@@ -1,10 +1,18 @@
 {
     "name": "Kanami Ibuki",
     "description": "cute anime images",
-    "access_token": "oksflsdkfjldsfn3402jmoim",
+    "access_token": "a2d6479451122af585d90c8a11fdd722f145f7e64273c74189c45a4816f7e303",
+    "client_id": "cff45dc4cdae1bd4342079c83155ce0a001a030739aa49ab45038cd2dd739cbe",
+    "client_secret": "d228d1b0571f880c0dc865522855a07a3f31f1dbd95ad81d34163ecb3c799fee",
     "domain": "https://botsin.space",
     "db_path": "db.json",
     "respond": false,
     "offset_min": 10,
-    "tries": 5
+    "tries": 5,
+    "accounts": {
+        "pixiv":{
+            "username": "ZerataX",
+            "password": "verysecure123"
+        }
+    }
 }
