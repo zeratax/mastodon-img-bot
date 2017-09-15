@@ -7,3 +7,6 @@
     `python bot.py --config config.json --add`
     and just follow the instructions on screen
   4. When your finished start the bot with `python bot.py -c config.json`
+
+### Getting a bot token 
+see: https://gist.github.com/aparrish/661fca5ce7b4882a8c6823db12d42d26
