@@ -1,0 +1,14 @@
+{
+    "id": "db.json",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "properties": {
+        "images": {
+            "type": "array",
+            "items": {
+                "$ref": "image.json"
+            }
+        }
+    },
+    "required": ["images"]
+}

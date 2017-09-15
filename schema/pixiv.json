@@ -1,0 +1,16 @@
+{
+    "id": "pixiv.json",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "required": ["email", "password"],
+    "properties": {
+        "username": {
+            "type": "string",
+            "description": "username to your pixiv account"
+        },
+        "password": {
+            "type": "string",
+            "description": "password to your pixiv account"
+        }
+    }
+}

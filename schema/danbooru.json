@@ -1,0 +1,17 @@
+{
+    "id": "danbooru.json",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "required": ["token"],
+    "properties": {
+        "token": {
+            "type": "string",
+            "description": "access token to your danbooru account"
+        },
+        "username": {
+            "type": "string",
+            "description": "username to your danbooru account"
+
+        }
+    }
+}

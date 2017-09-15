@@ -1,0 +1,47 @@
+{
+    "id": "config.json",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+            "minLength": 1
+        },
+        "description": {
+            "type": "string",
+            "maxLength": 160
+        },
+        "access_token": {
+            "type": "string",
+            "description": "acces token for your bot account"
+        },
+        "domain": {
+            "type": "string",
+            "pattern": "(^(https?):\/\/|^)(([^\\.]+)\\.([^\\.]+\\.[^/$]+)|([^\\.]+\\.[^/$]+))\/?$",
+            "description": "your mastodon instance, eg: mastodon.social"
+        },
+        "accounts": {
+            "type": "object",
+            "desscription":"optional accounts to speed up retrieving images and additional info",
+            "twitter": { "$ref": "twitter.json" },
+            "danbooru": { "$ref": "danbooru.json" },
+            "pixiv": { "$ref": "pixiv.json" }
+        },
+        "db_path": {
+            "type": "string",
+            "pattern": "^\\S+(\/[^\\s]+)*\\.json$"
+        },
+        "offset_min": {
+            "type": "number",
+            "minimum": 1
+        },
+        "tries": {
+            "type": "number",
+            "minimum": 1
+        },
+        "respond": {
+            "type": "boolean"
+        }
+    },
+    "required": [ "access_token", "domain", "db_path" ]
+}

@@ -1,0 +1,41 @@
+{
+    "id": "image.json",
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "type": "object",
+    "required": ["source", "image_paths"],
+    "properties": {
+        "source": {
+            "type": "string",
+            "description": "url to the source",
+            "pattern": "^(?:http(s)?:\/\/)?[\\w.-]+(?:\\.[\\w\\.-]+)+[\\w\\-\\._~:\/?#[\\]@!\\$&'\\(\\)\\*\\+,;=.]+$"
+        },
+        "image_paths": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": {
+                "type": "string",
+                "pattern": "^\\S+(\/[^\\s]+)*\\.(png|gif|jpe?g)$"
+            },
+            "uniqueItems": true,
+            "description": "paths to the images"
+        },
+        "author": {
+            "type": "object",
+            "handle": {
+                "type": "string"
+            },
+            "name": {
+                "type": "string"
+            }
+        },
+        "description": {
+            "type": "string",
+            "maxLength": 400
+        },
+        "posted": {
+            "type": "string",
+            "description": "url to the posted toot"
+        }
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "name": "Kanami Ibuki",
+    "description": "cute anime images",
+    "access_token": "oksflsdkfjldsfn3402jmoim",
+    "domain": "https://botsin.space",
+    "db_path": "db.json",
+    "respond": false,
+    "offset_min": 10,
+    "tries": 5
+}
