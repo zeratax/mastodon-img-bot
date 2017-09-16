@@ -1,5 +1,4 @@
 log/
 images/
-/config.json
 /*.json
-!config.example.json
+!/config.example.json
