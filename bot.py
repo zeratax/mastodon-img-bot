@@ -24,13 +24,22 @@ re_pixiv = re.compile(
     r"https?://(www)?.pixiv.net/member_illust\.php\?mode=medium&illust_id=\d+")
 
 
-def get_error(e):
+def error_info(e):
+    """
+    https://stackoverflow.com/a/1278740
+    :param exception
+    :returns type, file, and line number
+    """
     exc_type, exc_obj, exc_tb = sys.exc_info()
     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
     return exc_type, fname, exc_tb.tb_lineno
 
 
 def download_image(url):
+    """
+    :param url: string with the url to the image
+    :return: string with the path to the saved image
+    """
     domain = "{0.netloc}".format(urlsplit(url))
     path = urlsplit(url).path
     filename = posixpath.basename(path)
@@ -43,6 +52,7 @@ def download_image(url):
 
     file_path = "images/{}/{}".format(domain, filename)
 
+    # create folders based on domain name
     if not os.path.isdir("images/" + domain):
         os.makedirs("images/" + domain)
     with open(file_path, 'wb') as out_file:
@@ -67,9 +77,10 @@ class BotClass():
 
         logger.debug("validating config...")
         validate(config, self.schema_config)
+        logger.debug("config is valid!")
+        # apply dictionary as properties of self.settings
         self.settings = json.loads(
             json.dumps(config), object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
-        logger.debug("config is valid!")
 
         logger.debug(self.settings)
 
@@ -85,6 +96,7 @@ class BotClass():
                                   self.settings.accounts.twitter.access_token_secret)
             self.tweet_api = tweepy.API(auth)
         except AttributeError:
+            logger.debug("twitter credentials not definied")
             self.tweet_api = False
         try:
             logger.info("login into danbooru account...")
@@ -92,6 +104,7 @@ class BotClass():
                                          username=self.settings.accounts.danbooru.username,
                                          api_key=self.settings.accounts.danbooru.token)
         except AttributeError:
+            logger.debug("danbooru credentials not definied")
             self.danbooru_api = False
         try:
             logger.info("login into pixiv account...")
@@ -99,7 +112,9 @@ class BotClass():
             self.pixiv_api.login(self.settings.accounts.pixiv.username,
                                  self.settings.accounts.pixiv.password)
         except AttributeError:
-            self.pixiv_api = AppPixivAPI()
+            logger.debug("pixiv credentials not definied")
+            # self.pixiv_api = AppPixivAPI()
+            self.pixiv_api = False
 
     def load_images(self):
         logger.info("loading images from: " + self.settings.db_path)
@@ -110,12 +125,16 @@ class BotClass():
             with open(self.settings.db_path) as data:
                 self.db = json.load(data)
 
+        # change relative paths to a absolute paths
         schema_path = 'file:///{0}/'.format(
             os.path.dirname(os.path.abspath(self.schema_db_path)).replace("\\", '/'))
         resolver = RefResolver(schema_path, self.schema_db)
         logger.debug("validating db...")
         validate(self.db, self.schema_db, resolver=resolver)
         logger.debug("db is valid!")
+        # logger.debug("validating db...")
+        # validate(self.db, self.schema_db)
+        # logger.debug("db is valid!")
 
     def add_images(self):
         with open(self.schema_image_path) as data:
@@ -124,13 +143,14 @@ class BotClass():
         while True:
             logger.info("adding Image to db")
             logger.debug(self.db)
-            paths = []
-            source = input("enter image source:\n")
             exists = False
+            paths = []
             handle = ""
             name = ""
             description = ""
+            source = input("enter image source:\n")
             if source:
+                # check if image was already added
                 for image in self.db["images"]:
                     if source == image["source"]:
                         exists = True
@@ -138,9 +158,12 @@ class BotClass():
                 if exists:
                     print("already added!")
                     continue
+                # if url is part of these automatically retrieve image and
+                # additional info
                 if re_twitter.search(source) and self.tweet_api:
                     id = source.split('/')[-1]
                     tweet = self.tweet_api.get_status(id)
+                    logger.debug(tweet)
 
                     # print(tweet.extended_entities)
                     for image in tweet.extended_entities['media']:
@@ -149,8 +172,9 @@ class BotClass():
                         path = download_image(file_url)
                         paths.append(path)
 
-                    handle = '@' + tweet.user.screen_name
+                    handle = "@{}@twitter.com".format(tweet.user.screen_name)
                     name = tweet.user.name
+                    # last word is always the shortened link to the media
                     description = tweet.text.rsplit(' ', 1)[0]
                 elif re_danbooru.search(source):
                     if self.danbooru_api:
@@ -159,6 +183,7 @@ class BotClass():
                     else:
                         resp = requests.get(url=source)
                         post = json.loads(resp.text)
+                    logger.debug(post)
 
                     try:
                         file_url = 'http://danbooru.donmai.us' + \
@@ -168,6 +193,8 @@ class BotClass():
                     path = download_image(file_url)
                     paths.append(path)
 
+                    # get name and handle if possible from pixiv, check if api
+                    # shows pawoo handle
                     name = post['tag_string_artist']
                     if post['pixiv_id']:
                         source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + \
@@ -176,13 +203,28 @@ class BotClass():
                         description = '#' + \
                             post['tag_string_copyright'].replace(' ', ' #')
 
-                    # get name and handle if possible from pixiv, check if api shows pawoo handle
-                elif re_pixiv.search(source):
+                    if self.pixiv_api:
+                        post = illust = self.pixiv_api.illust_detail(
+                            post['pixiv_id'], req_auth=True).illust
+                        user = self.pixiv_api.user_detail(
+                            post.user['id'], req_auth=True)
+                        if user.profile['twitter_account']:
+                            handle = "@{}@twitter.com".format(
+                                user.profile['twitter_account'])
+                        if user.profile['pawoo_url']:
+                            # resolve redirected url
+                            r = requests.get(user.profile['pawoo_url'])
+                            handle = "@{}@pawoo.net".format(r.url.split("@")[1])
+                elif re_pixiv.search(source) and self.pixiv_api:
+                    # currently pixiv downloading only works while logged in to
+                    # pixiv
                     id = source.split('id=')[1]
                     illust = self.pixiv_api.illust_detail(
-                        id, req_auth=True).illust
+                        id, req_auth=True)
+                    logger.debug(illust)
+                    post = illust.illust
 
-                    file_url = illust.image_urls[
+                    file_url = post.image_urls[
                         'large'].replace("/c/600x1200_90", '')
                     path = "images/pixiv/" + id + ".jpg"
                     paths.append(path)
@@ -192,10 +234,28 @@ class BotClass():
                     self.pixiv_api.download(
                         file_url, path="images/pixiv/", name=id + ".jpg")
 
-                    name = illust.user['name']
-                    handle = str(illust.user['id'])
-                    description = illust.title + "\n" + illust.caption
+                    name = post.user['name']
+                    handle = str(post.user['id'])
+                    user = self.pixiv_api.user_detail(int(handle), req_auth=True)
+                    if user.profile['twitter_account']:
+                        handle = "@{}@twitter.com".format(
+                            user.profile['twitter_account'])
+                    if user.profile['pawoo_url']:
+                        # resolve redirected url
+                        r = requests.get(user.profile['pawoo_url'])
+                        handle = "@{}@pawoo.net".format(r.url.split("@")[1])
+
+                    try:
+                        description = illust.title
+                        if post.tags:
+                            description += "\n"
+                    except AttributeError:
+                        pass
+                    for tag in post.tags:
+                        description += '#' + tag['name'] + ' '
+                    description = description[:-1]
                 else:
+                    # enter info manually
                     while len(paths) < 4:
                         path = input(
                             "enter a relative image path or url:\n")
@@ -219,26 +279,28 @@ class BotClass():
                     },
                     "description": description
                 }
-                logger.debug("validating entered info")
+                logger.debug("validating entered info...")
                 validate(image, self.schema_image)
                 logger.debug("info is valid")
                 self.db["images"].append(image)
                 with open(self.settings.db_path, 'w') as output:
-                    json.dump(self.db, output)
+                    json.dump(self.db, output)  # save to database
             else:
                 break
 
 
 if __name__ == '__main__':
+    # add arguments
     parser = argparse.ArgumentParser(description='discord bot')
-    parser.add_argument("-c", "--config", help="Specify config file",
+    parser.add_argument("-c", "--config", help="specify config file",
                         metavar="FILE")
-    parser.add_argument("-a", "--add", help="Add images to database",
+    parser.add_argument("-a", "--add", help="add images to database",
                         action="store_true")
     parser.add_argument("-v", "--verbose", help="increase output verbosity",
                         action="store_true")
     args = parser.parse_args()
 
+    # setup logging
     if args.verbose:
         print("verbose output enabled")
         logger.setLevel(logging.DEBUG)
@@ -250,6 +312,7 @@ if __name__ == '__main__':
     consoleFormatter = logging.Formatter(
         '%(levelname)s:%(name)s: %(message)s')
 
+    # setup folders
     date = datetime.datetime.utcnow().strftime("%Y%m%d")
     time = datetime.datetime.utcnow().strftime("%X")
     if not os.path.isdir("log/{}".format(date)):
@@ -266,6 +329,7 @@ if __name__ == '__main__':
     consoleHandler.setFormatter(consoleFormatter)
     logger.addHandler(consoleHandler)
 
+    # start bot with desired config
     if args.config:
         config_path = args.config
     while not os.path.isfile(config_path):
@@ -275,5 +339,6 @@ if __name__ == '__main__':
         data = json.load(data)
     bot = BotClass(data)
 
+    # start bot in image adding mode
     if args.add:
         bot.add_images()
