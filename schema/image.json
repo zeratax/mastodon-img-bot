@@ -9,16 +9,25 @@
             "description": "url to the source",
             "pattern": "^(?:http(s)?:\/\/)?[\\w.-]+(?:\\.[\\w\\.-]+)+[\\w\\-\\._~:\/?#[\\]@!\\$&'\\(\\)\\*\\+,;=.]+$"
         },
+        "additional": {
+            "type": "array",
+            "description": "additional links",
+            "items": {
+                "type": "string",
+                "pattern": "^(?:http(s)?:\/\/)?[\\w.-]+(?:\\.[\\w\\.-]+)+[\\w\\-\\._~:\/?#[\\]@!\\$&'\\(\\)\\*\\+,;=.]+$"
+            },
+            "uniqueItems": true
+        },
         "image_paths": {
             "type": "array",
+            "description": "paths to the images",
             "minItems": 1,
             "maxItems": 4,
             "items": {
                 "type": "string",
                 "pattern": "^\\S+(\/[^\\s]+)*\\.(png|gif|jpe?g)$"
             },
-            "uniqueItems": true,
-            "description": "paths to the images"
+            "uniqueItems": true
         },
         "author": {
             "type": "object",
@@ -36,6 +45,13 @@
         "posted": {
             "type": "string",
             "description": "url to the posted toot"
+        },
+        "nsfw": {
+            "type": "boolean"
+        },
+        "cw": {
+            "type": "string",
+            "description": "content warning"
         }
     }
 }

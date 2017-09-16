@@ -19,6 +19,7 @@ from pybooru import Danbooru
 
 logger = logging.getLogger("bot")
 re_twitter = re.compile(r"https?://twitter\.com/\S+/\d+")
+re_tweet =  re.compile(r"https?://twitter\.com\/(\S+)/status/\d+")
 re_danbooru = re.compile(r"https?://danbooru\.donmai\.us/posts/\d+")
 re_pixiv = re.compile(
     r"https?://(www)?.pixiv.net/member_illust\.php\?mode=medium&illust_id=\d+")
@@ -46,20 +47,23 @@ def download_image(url):
 
     logger.info("downloading image...")
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
-    response = requests.get(url, headers=headers, stream=True)
-
     file_path = "images/{}/{}".format(domain, filename)
+    if not os.path.isfile(file_path):
+        # create folders based on domain name
+        if not os.path.isdir("images/" + domain):
+            os.makedirs("images/" + domain)
 
-    # create folders based on domain name
-    if not os.path.isdir("images/" + domain):
-        os.makedirs("images/" + domain)
-    with open(file_path, 'wb') as out_file:
-        shutil.copyfileobj(
-            response.raw, out_file)
-    del response
-    logger.debug("image downloaded!")
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+        response = requests.get(url, headers=headers, stream=True)
+
+        with open(file_path, 'wb') as out_file:
+            shutil.copyfileobj(
+                response.raw, out_file)
+        del response
+        logger.info("image downloaded!")
+    else:
+        logger.info("image already downloaded")
 
     return file_path
 
@@ -71,7 +75,7 @@ class BotClass():
     db = {"images": []}
 
     def __init__(self, config):
-        logger.info("loading config...")
+        logger.debug("loading config...")
         with open(self.schema_config_path) as data:
             self.schema_config = json.load(data)
 
@@ -117,7 +121,7 @@ class BotClass():
             self.pixiv_api = False
 
     def load_images(self):
-        logger.info("loading images from: " + self.settings.db_path)
+        logger.debug("loading images from: " + self.settings.db_path)
         with open(self.schema_db_path) as data:
             self.schema_db = json.load(data)
 
@@ -141,15 +145,17 @@ class BotClass():
             self.schema_image = json.load(data)
 
         while True:
-            logger.info("adding Image to db")
+            logger.debug("adding Image to db")
             logger.debug(self.db)
             exists = False
+            nsfw = False
             paths = []
             handle = ""
             name = ""
             description = ""
-            source = input("enter image source:\n")
+            source = input("enter image source (leave empty to abort):\n")
             if source:
+                self.load_images()
                 # check if image was already added
                 for image in self.db["images"]:
                     if source == image["source"]:
@@ -167,21 +173,26 @@ class BotClass():
 
                     # print(tweet.extended_entities)
                     for image in tweet.extended_entities['media']:
-                        file_url = image['media_url_https']
+                        if image['type'] == 'photo':
+                            file_url = image['media_url_https']
 
-                        path = download_image(file_url)
-                        paths.append(path)
+                            path = download_image(file_url)
+                            paths.append(path)
 
                     handle = "@{}@twitter.com".format(tweet.user.screen_name)
                     name = tweet.user.name
                     # last word is always the shortened link to the media
-                    description = tweet.text.rsplit(' ', 1)[0]
+                    if len(tweet.text.rsplit(' ', 1)):
+                        description = tweet.text.rsplit(' ', 1)[0]
+                    if tweet.possibly_sensitive:
+                        nsfw = True
                 elif re_danbooru.search(source):
                     if self.danbooru_api:
                         id = source.split("?")[0].split("/")[-1]
                         post = self.danbooru_api.post_show(id)
                     else:
-                        resp = requests.get(url=source)
+                        url = source.split("?")[0] + ".json"
+                        resp = requests.get(url)
                         post = json.loads(resp.text)
                     logger.debug(post)
 
@@ -196,25 +207,35 @@ class BotClass():
                     # get name and handle if possible from pixiv, check if api
                     # shows pawoo handle
                     name = post['tag_string_artist']
+                    if post['source']:
+                        source = post['source']
+                        if re_tweet.search(source):
+                            username = re_tweet.search(source)[1]
+                            handle = "@{}@twitter.com".format(username)
                     if post['pixiv_id']:
                         source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + \
                             str(post['pixiv_id'])
                     if post['tag_string_copyright']:
                         description = '#' + \
                             post['tag_string_copyright'].replace(' ', ' #')
+                    if post['rating'] is not "s":
+                        nsfw = True
 
-                    if self.pixiv_api:
-                        post = illust = self.pixiv_api.illust_detail(
-                            post['pixiv_id'], req_auth=True).illust
+                    if self.pixiv_api and post['pixiv_id']:
+                        illust = self.pixiv_api.illust_detail(
+                            post['pixiv_id'], req_auth=True)
+                        logger.debug(illust)
+                        post = illust.illust
                         user = self.pixiv_api.user_detail(
                             post.user['id'], req_auth=True)
                         if user.profile['twitter_account']:
-                            handle = "@{}@twitter.com".format(
-                                user.profile['twitter_account'])
+                            username = user.profile['twitter_account']
+                            handle = "@{}@twitter.com".format(username)
                         if user.profile['pawoo_url']:
                             # resolve redirected url
                             r = requests.get(user.profile['pawoo_url'])
-                            handle = "@{}@pawoo.net".format(r.url.split("@")[1])
+                            username = r.url.split("@")[1]
+                            handle = "@{}@pawoo.net".format(username)
                 elif re_pixiv.search(source) and self.pixiv_api:
                     # currently pixiv downloading only works while logged in to
                     # pixiv
@@ -238,12 +259,13 @@ class BotClass():
                     handle = str(post.user['id'])
                     user = self.pixiv_api.user_detail(int(handle), req_auth=True)
                     if user.profile['twitter_account']:
-                        handle = "@{}@twitter.com".format(
-                            user.profile['twitter_account'])
+                        username = user.profile['twitter_account']
+                        handle = "@{}@twitter.com".format(username)
                     if user.profile['pawoo_url']:
                         # resolve redirected url
                         r = requests.get(user.profile['pawoo_url'])
-                        handle = "@{}@pawoo.net".format(r.url.split("@")[1])
+                        username = r.url.split("@")[1]
+                        handle = "@{}@pawoo.net".format(username)
 
                     try:
                         description = illust.title
@@ -260,10 +282,14 @@ class BotClass():
                         path = input(
                             "enter a relative image path or url:\n")
                         if path:
-                            if not os.path.isfile(path):
+                            # instead of posting images mastodon links can be boosted
+                            if path == "mastodon":
+                                paths.append(path + ".png") # to be still validatable
+                                break
+                            elif not os.path.isfile(path):
                                 path = download_image(path)
                             paths.append(path)
-                        elif len(paths) > 0:
+                        elif paths:
                             break
                     handle = input(
                         "enter english author name (optional):\n")
@@ -277,7 +303,8 @@ class BotClass():
                         "handle": handle,
                         "name": name
                     },
-                    "description": description
+                    "description": description,
+                    "nsfw": nsfw
                 }
                 logger.debug("validating entered info...")
                 validate(image, self.schema_image)
