@@ -13,6 +13,7 @@ import posixpath
 import re
 import random
 import time
+from urllib import parse
 
 import schedule
 from mastodon import Mastodon
@@ -129,7 +130,6 @@ class BotClass():
             # self.pixiv_api = AppPixivAPI()
             self.pixiv_api = False
 
-
     def post_toot(self):
         self.load_images()
         logger.debug("choosing random image...")
@@ -144,7 +144,8 @@ class BotClass():
             posted = False
         if paths[0] == "mastodon.png" or posted:
             # if already posted or a mastodon link boost original toot
-            # status_id = source.split("/")[-1]  # not sure if ids work like this
+            # status_id = source.split("/")[-1]  # not sure if ids work like
+            # this
             search = self.mastodon_api.search(source, resolve=True)
             logger.debug(search)
             status_id = search['statuses'][0]['id']
@@ -179,20 +180,19 @@ class BotClass():
                 media_ids.append(media['id'])
                 logger.debug(media)
 
-
             logger.debug("posting toot...")
             try:
                 cw = image['cw']
                 toot = self.mastodon_api.status_post(status,
-                                                 media_ids=media_ids,
-                                                 sensitive=nsfw,
-                                                 visibility='public',
-                                                 spoiler_text=cw)
+                                                     media_ids=media_ids,
+                                                     sensitive=nsfw,
+                                                     visibility='public',
+                                                     spoiler_text=cw)
             except KeyError:
                 toot = self.mastodon_api.status_post(status,
-                                                 media_ids=media_ids,
-                                                 sensitive=nsfw,
-                                                 visibility='public')
+                                                     media_ids=media_ids,
+                                                     sensitive=nsfw,
+                                                     visibility='public')
         logger.debug(toot)
         image['posted'] = toot['url']
         logger.info(toot['url'])
@@ -201,9 +201,9 @@ class BotClass():
         logger.debug("toot url saved to db")
         # logger.debug(self.db)
 
-
     def scheduled_toots(self):
-        logger.debug("posting toots every: {}min".format(self.settings.offset_min))
+        logger.debug("posting toots every: {}min".format(
+            self.settings.offset_min))
         schedule.every(self.settings.offset_min).minutes.do(self.post_toot)
         while True:
             try:
@@ -212,7 +212,6 @@ class BotClass():
                 logger.warning(repr(e))
                 logger.warning(error_info(e))
             time.sleep(1)
-
 
     def load_images(self):
         logger.debug("loading images from: " + self.settings.db_path)
@@ -233,7 +232,6 @@ class BotClass():
         # logger.debug("validating db...")
         # validate(self.db, self.schema_db)
         # logger.debug("db is valid!")
-
 
     def add_images(self):
         with open(self.schema_image_path) as data:
@@ -303,7 +301,7 @@ class BotClass():
                     # shows pawoo handle
                     name = post['tag_string_artist']
                     if post['source']:
-                        source = post['source']
+                        source = parse.unquote(post['source'])
                         if re_tweet.search(source):
                             username = re_tweet.search(source)[1]
                             handle = "@{}@twitter.com".format(username)
@@ -312,7 +310,8 @@ class BotClass():
                             str(post['pixiv_id'])
                     if post['tag_string_copyright']:
                         description = '#' + \
-                            post['tag_string_copyright'].replace(' ', ' #')
+                            post['tag_string_copyright'].replace(' ', ' #').replace(
+                                "#original", ' ').replace("_(series)", ' ')
                     if post['rating'] is not "s":
                         nsfw = True
 
@@ -323,6 +322,7 @@ class BotClass():
                         post = illust.illust
                         user = self.pixiv_api.user_detail(
                             post.user['id'], req_auth=True)
+                        handle = str(post.user['id'])
                         if user.profile['twitter_account']:
                             username = user.profile['twitter_account']
                             handle = "@{}@twitter.com".format(username)
@@ -390,9 +390,9 @@ class BotClass():
                         elif paths:
                             break
                     handle = input(
-                        "enter english author name (optional):\n")
+                        "enter author handle, eg peterspark@pawoo.net (optional):\n")
                     name = input(
-                        "enter japanese author name (optional):\n")
+                        "enter author name (optional):\n")
                     description = input("enter description (optional)\n")
                 image = {
                     "source": source,
@@ -410,13 +410,15 @@ class BotClass():
                 self.db["images"].append(image)
                 with open(self.settings.db_path, 'w') as output:
                     json.dump(self.db, output)  # save to database
+                logger.info("{} images in db".format(len(self.db["images"])))
             else:
                 break
 
 
 if __name__ == '__main__':
     # add arguments
-    parser = argparse.ArgumentParser(description='simple scheduled image bot for your mastodon instance')
+    parser = argparse.ArgumentParser(
+        description='simple scheduled image bot for your mastodon instance')
     parser.add_argument("-c", "--config", help="specify config file",
                         metavar="FILE")
     parser.add_argument("-a", "--add", help="add images to database",
