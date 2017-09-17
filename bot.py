@@ -416,7 +416,7 @@ class BotClass():
 
 if __name__ == '__main__':
     # add arguments
-    parser = argparse.ArgumentParser(description='discord bot')
+    parser = argparse.ArgumentParser(description='mastodon bot that post scheduled random toots with images based on a simple json structured database')
     parser.add_argument("-c", "--config", help="specify config file",
                         metavar="FILE")
     parser.add_argument("-a", "--add", help="add images to database",
