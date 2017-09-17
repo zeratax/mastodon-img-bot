@@ -12,7 +12,9 @@ from urllib.parse import urlsplit
 import posixpath
 import re
 import random
+import time
 
+import schedule
 from mastodon import Mastodon
 import tweepy
 from pixivpy3 import *
@@ -127,19 +129,11 @@ class BotClass():
             # self.pixiv_api = AppPixivAPI()
             self.pixiv_api = False
 
+
     def post_toot(self):
+        self.load_images()
         logger.debug("choosing random image...")
         image = random.choice(self.db['images'])
-        image = {
-            "source": "https://pawoo.net/@Asteroid/37737001",
-            "image_paths": ["mastodon.png"],
-            "author": {
-                "handle": "",
-                "name": ""
-            },
-            "description": "",
-            "nsfw": False
-        }
         logger.debug(image)
         source = image['source']
         paths = image['image_paths']
@@ -199,13 +193,26 @@ class BotClass():
                                                  media_ids=media_ids,
                                                  sensitive=nsfw,
                                                  visibility='public')
-        logger.debug("toot posted!")
         logger.debug(toot)
         image['posted'] = toot['url']
+        logger.info(toot['url'])
         with open(self.settings.db_path, 'w') as output:
             json.dump(self.db, output)  # save to database
         logger.debug("toot url saved to db")
-        logger.debug(self.db)
+        # logger.debug(self.db)
+
+
+    def scheduled_toots(self):
+        logger.debug("posting toots every: {}min".format(self.settings.offset_min))
+        schedule.every(self.settings.offset_min).minutes.do(self.post_toot)
+        while True:
+            try:
+                schedule.run_pending()
+            except Exception as e:
+                logger.warning(repr(e))
+                logger.warning(error_info(e))
+            time.sleep(1)
+
 
     def load_images(self):
         logger.debug("loading images from: " + self.settings.db_path)
@@ -227,13 +234,14 @@ class BotClass():
         # validate(self.db, self.schema_db)
         # logger.debug("db is valid!")
 
+
     def add_images(self):
         with open(self.schema_image_path) as data:
             self.schema_image = json.load(data)
 
         while True:
             logger.debug("adding Image to db")
-            logger.debug(self.db)
+            # logger.debug(self.db)
             exists = False
             nsfw = False
             paths = []
@@ -432,14 +440,14 @@ if __name__ == '__main__':
         '%(levelname)s:%(name)s: %(message)s')
 
     # setup folders
-    date = datetime.datetime.utcnow().strftime("%Y%m%d")
-    time = datetime.datetime.utcnow().strftime("%X")
-    if not os.path.isdir("log/{}".format(date)):
-        os.makedirs("log/{}".format(date))
+    date_str = datetime.datetime.utcnow().strftime("%Y%m%d")
+    time_str = datetime.datetime.utcnow().strftime("%X")
+    if not os.path.isdir("log/{}".format(date_str)):
+        os.makedirs("log/{}".format(date_str))
     if not os.path.isdir("images"):
         os.makedirs("images")
 
-    handler = logging.FileHandler(filename="log/{}/{}.log".format(date, time),
+    handler = logging.FileHandler(filename="log/{}/{}.log".format(date_str, time_str),
                                   encoding="utf-8", mode='w')
     handler.setFormatter(logFormatter)
     logger.addHandler(handler)
@@ -464,3 +472,7 @@ if __name__ == '__main__':
 
     if args.post:
         bot.post_toot()
+
+    if not args.add and not args.post:
+        logger.info("starting scheduled toots")
+        bot.scheduled_toots()
