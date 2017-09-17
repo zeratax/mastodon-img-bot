@@ -11,7 +11,9 @@ import requests
 from urllib.parse import urlsplit
 import posixpath
 import re
+import random
 
+from mastodon import Mastodon
 import tweepy
 from pixivpy3 import *
 from pybooru import Danbooru
@@ -19,7 +21,7 @@ from pybooru import Danbooru
 
 logger = logging.getLogger("bot")
 re_twitter = re.compile(r"https?://twitter\.com/\S+/\d+")
-re_tweet =  re.compile(r"https?://twitter\.com\/(\S+)/status/\d+")
+re_tweet = re.compile(r"https?://twitter\.com\/(\S+)/status/\d+")
 re_danbooru = re.compile(r"https?://danbooru\.donmai\.us/posts/\d+")
 re_pixiv = re.compile(
     r"https?://(www)?.pixiv.net/member_illust\.php\?mode=medium&illust_id=\d+")
@@ -92,6 +94,11 @@ class BotClass():
         self.login()
 
     def login(self):
+        logger.info("login into mastodon bot...")
+        self.mastodon_api = Mastodon(client_id=self.settings.client_id,
+                                     client_secret=self.settings.client_secret,
+                                     access_token=self.settings.access_token,
+                                     api_base_url=self.settings.domain)
         try:
             logger.info("login into twitter account...")
             auth = tweepy.OAuthHandler(self.settings.accounts.twitter.consumer_key,
@@ -119,6 +126,86 @@ class BotClass():
             logger.debug("pixiv credentials not definied")
             # self.pixiv_api = AppPixivAPI()
             self.pixiv_api = False
+
+    def post_toot(self):
+        logger.debug("choosing random image...")
+        image = random.choice(self.db['images'])
+        image = {
+            "source": "https://pawoo.net/@Asteroid/37737001",
+            "image_paths": ["mastodon.png"],
+            "author": {
+                "handle": "",
+                "name": ""
+            },
+            "description": "",
+            "nsfw": False
+        }
+        logger.debug(image)
+        source = image['source']
+        paths = image['image_paths']
+        try:
+            posted = True
+            source = image['posted']
+        except KeyError:
+            posted = False
+        if paths[0] == "mastodon.png" or posted:
+            # if already posted or a mastodon link boost original toot
+            # status_id = source.split("/")[-1]  # not sure if ids work like this
+            search = self.mastodon_api.search(source, resolve=True)
+            logger.debug(search)
+            status_id = search['statuses'][0]['id']
+            logger.debug("toot id: " + str(status_id))
+            logger.debug("boosting toot...")
+            toot = self.mastodon_api.status_reblog(status_id)
+        else:
+            name = image['author']['name']
+            handle = image['author']['handle']
+            status = "Created by: {}({})\nSource: {}".format(
+                name, handle, source)
+            try:
+                additional = image['additional']
+                for link in image['additional']:
+                    status += "\n" + link
+            except KeyError:
+                pass
+            try:
+                description = image['description']
+                status += "\n\n" + description[:400]
+            except KeyError:
+                pass
+            try:
+                nsfw = image['nsfw']
+            except KeyError:
+                nsfw = False
+
+            media_ids = []
+            for path in paths:
+                logger.debug("'{}' uploading...".format(path))
+                media = self.mastodon_api.media_post(media_file=path)
+                media_ids.append(media['id'])
+                logger.debug(media)
+
+
+            logger.debug("posting toot...")
+            try:
+                cw = image['cw']
+                toot = self.mastodon_api.status_post(status,
+                                                 media_ids=media_ids,
+                                                 sensitive=nsfw,
+                                                 visibility='public',
+                                                 spoiler_text=cw)
+            except KeyError:
+                toot = self.mastodon_api.status_post(status,
+                                                 media_ids=media_ids,
+                                                 sensitive=nsfw,
+                                                 visibility='public')
+        logger.debug("toot posted!")
+        logger.debug(toot)
+        image['posted'] = toot['url']
+        with open(self.settings.db_path, 'w') as output:
+            json.dump(self.db, output)  # save to database
+        logger.debug("toot url saved to db")
+        logger.debug(self.db)
 
     def load_images(self):
         logger.debug("loading images from: " + self.settings.db_path)
@@ -257,7 +344,8 @@ class BotClass():
 
                     name = post.user['name']
                     handle = str(post.user['id'])
-                    user = self.pixiv_api.user_detail(int(handle), req_auth=True)
+                    user = self.pixiv_api.user_detail(
+                        int(handle), req_auth=True)
                     if user.profile['twitter_account']:
                         username = user.profile['twitter_account']
                         handle = "@{}@twitter.com".format(username)
@@ -282,9 +370,11 @@ class BotClass():
                         path = input(
                             "enter a relative image path or url:\n")
                         if path:
-                            # instead of posting images mastodon links can be boosted
+                            # instead of posting images mastodon links can be
+                            # boosted
                             if path == "mastodon":
-                                paths.append(path + ".png") # to be still validatable
+                                # to be still validatable
+                                paths.append(path + ".png")
                                 break
                             elif not os.path.isfile(path):
                                 path = download_image(path)
@@ -322,6 +412,8 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--config", help="specify config file",
                         metavar="FILE")
     parser.add_argument("-a", "--add", help="add images to database",
+                        action="store_true")
+    parser.add_argument("-p", "--post", help="post toot",
                         action="store_true")
     parser.add_argument("-v", "--verbose", help="increase output verbosity",
                         action="store_true")
@@ -369,3 +461,6 @@ if __name__ == '__main__':
     # start bot in image adding mode
     if args.add:
         bot.add_images()
+
+    if args.post:
+        bot.post_toot()
