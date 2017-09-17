@@ -3,8 +3,7 @@
 $ python bot.py -h
 usage: bot.py [-h] [-c FILE] [-a] [-p] [-v]
 
-mastodon bot that post scheduled random toots with images based on a simple
-json structured database
+simple scheduled image bot for your mastodon instance
 
 optional arguments:
   -h, --help            show this help message and exit
