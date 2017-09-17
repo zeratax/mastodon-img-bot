@@ -25,7 +25,7 @@
             "maxItems": 4,
             "items": {
                 "type": "string",
-                "pattern": "^\\S+(\/[^\\s]+)*\\.(png|gif|jpe?g)$"
+                "pattern": "^\\S+(\/[^\\s]+)*\\.(png|gif|jpe?g|mp4)$"
             },
             "uniqueItems": true
         },
