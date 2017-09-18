@@ -131,6 +131,7 @@ class BotClass():
             self.pixiv_api = False
 
     def post_toot(self):
+        logger.info("creating new toot...")
         self.load_images()
         logger.debug("choosing random image...")
         image = random.choice(self.db['images'])
@@ -364,14 +365,14 @@ class BotClass():
                         handle = "@{}@pawoo.net".format(username)
 
                     try:
-                        description = illust.title
+                        description = post.title
                         if post.tags:
-                            description += "\n"
+                            description += "\n\n"
+                            for tag in post.tags:
+                                description += '#' + tag['name'] + ' '
+                            description = description[:-1]
                     except AttributeError:
                         pass
-                    for tag in post.tags:
-                        description += '#' + tag['name'] + ' '
-                    description = description[:-1]
                 else:
                     # enter info manually
                     while len(paths) < 4:
