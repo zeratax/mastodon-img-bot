@@ -7,14 +7,14 @@
         "source": {
             "type": "string",
             "description": "url to the source",
-            "pattern": "^(?:http(s)?:\/\/)?[\\w.-]+(?:\\.[\\w\\.-]+)+[\\w\\-\\._~:\/?#[\\]@!\\$&'\\(\\)\\*\\+,;=.]+$"
+            "pattern": "^(?:https?:\/\/)?[\\w.-]+(?:\\.[\\w\\.-]+)+[\\w\\-\\._~:\/?#[\\]@!\\$&'\\(\\)\\*\\+,;=.]+$"
         },
         "additional": {
             "type": "array",
             "description": "additional links",
             "items": {
                 "type": "string",
-                "pattern": "^(?:http(s)?:\/\/)?[\\w.-]+(?:\\.[\\w\\.-]+)+[\\w\\-\\._~:\/?#[\\]@!\\$&'\\(\\)\\*\\+,;=.]+$"
+                "pattern": "^(?:https?:\/\/)?[\\w.-]+(?:\\.[\\w\\.-]+)+[\\w\\-\\._~:\/?#[\\]@!\\$&'\\(\\)\\*\\+,;=.]+$"
             },
             "uniqueItems": true
         },
@@ -25,7 +25,7 @@
             "maxItems": 4,
             "items": {
                 "type": "string",
-                "pattern": "^\\S+(\/[^\\s]+)*\\.(png|gif|jpe?g|mp4)$"
+                "pattern": "^\\S+(\/[^\\s]+)*\\.(png|gif|jpe?g|mp4|webm)$"
             },
             "uniqueItems": true
         },
