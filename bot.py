@@ -28,6 +28,8 @@ re_tweet = re.compile(r"https?://twitter\.com\/(\S+)/status/\d+")
 re_danbooru = re.compile(r"https?://danbooru\.donmai\.us/posts/\d+")
 re_pixiv = re.compile(
     r"https?://(www)?.pixiv.net/member_illust\.php\?mode=medium&illust_id=\d+")
+re_mastodon = re.compile(
+    r"https?://(pawoo\.net|mastodon\.social)/\S+/\d+")
 
 
 def error_info(e):
@@ -260,7 +262,9 @@ class BotClass():
                     continue
                 # if url is part of these automatically retrieve image and
                 # additional info
-                if re_twitter.search(source) and self.tweet_api:
+                if re_mastodon.search(source):
+                    paths.append("mastodon.png")
+                elif re_twitter.search(source) and self.tweet_api:
                     id = source.split('/')[-1]
                     tweet = self.tweet_api.get_status(id)
                     logger.debug(tweet)
@@ -473,9 +477,11 @@ if __name__ == '__main__':
     if args.add:
         bot.add_images()
 
+    # post a single toot
     if args.post:
         bot.post_toot()
 
+    # start bot in scheduled toot mode
     if not args.add and not args.post:
         logger.info("starting scheduled toots")
         bot.scheduled_toots()
