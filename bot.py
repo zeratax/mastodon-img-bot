@@ -373,7 +373,9 @@ class BotClass():
                         if post.tags:
                             description += "\n\n"
                             for tag in post.tags:
-                                description += '#' + tag['name'] + ' '
+                                tag = tag['name'].replace(
+                                    "/", "_").replace("-", "_")
+                                description += '#' + tag + ' '
                             description = description[:-1]
                     except AttributeError:
                         pass
