@@ -43,6 +43,11 @@ def error_info(e):
     return exc_type, fname, exc_tb.tb_lineno
 
 
+def get_handle(username, domain="twitter.com"):
+    handle = "@{}@{}".format(username, domain)
+    return handle
+
+
 def download_image(url):
     """
     :param url: string with the url to the image
@@ -253,173 +258,254 @@ class BotClass():
             if source:
                 self.load_images()
                 # check if image was already added
-                for image in self.db["images"]:
-                    if source == image["source"]:
-                        exists = True
-                        break
-                if exists:
+                if self.image_exists(source):
                     print("already added!")
-                    continue
+                    continue  # jump into next loop
                 # if url is part of these automatically retrieve image and
                 # additional info
                 if re_mastodon.search(source):
                     paths.append("mastodon.png")
                 elif re_twitter.search(source) and self.tweet_api:
-                    id = source.split('/')[-1]
-                    tweet = self.tweet_api.get_status(id)
-                    logger.debug(tweet)
-
-                    # print(tweet.extended_entities)
-                    for image in tweet.extended_entities['media']:
-                        if image['type'] == 'photo':
-                            file_url = image['media_url_https']
-
-                            path = download_image(file_url)
-                            paths.append(path)
-
-                    handle = "@{}@twitter.com".format(tweet.user.screen_name)
-                    name = tweet.user.name
-                    # last word is always the shortened link to the media
-                    if len(tweet.text.rsplit(' ', 1)):
-                        description = tweet.text.rsplit(' ', 1)[0]
-                    if tweet.possibly_sensitive:
-                        nsfw = True
+                    image = self.twitter_info(source)
                 elif re_danbooru.search(source):
-                    if self.danbooru_api:
-                        id = source.split("?")[0].split("/")[-1]
-                        post = self.danbooru_api.post_show(id)
-                    else:
-                        url = source.split("?")[0] + ".json"
-                        resp = requests.get(url)
-                        post = json.loads(resp.text)
-                    logger.debug(post)
-
-                    try:
-                        file_url = 'http://danbooru.donmai.us' + \
-                            post['file_url']
-                    except NameError:
-                        file_url = post['source']
-                    path = download_image(file_url)
-                    paths.append(path)
-
-                    # get name and handle if possible from pixiv, check if api
-                    # shows pawoo handle
-                    name = post['tag_string_artist']
-                    if post['source']:
-                        source = parse.unquote(post['source'])
-                        if re_tweet.search(source):
-                            username = re_tweet.search(source)[1]
-                            handle = "@{}@twitter.com".format(username)
-                    if post['pixiv_id']:
-                        source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + \
-                            str(post['pixiv_id'])
-                    if post['tag_string_copyright']:
-                        description = '#' + \
-                            post['tag_string_copyright'].replace(' ', ' #').replace(
-                                "#original", ' ').replace("_(series)", ' ')
-                    if post['rating'] is not "s":
-                        nsfw = True
-
-                    if self.pixiv_api and post['pixiv_id']:
-                        illust = self.pixiv_api.illust_detail(
-                            post['pixiv_id'], req_auth=True)
-                        logger.debug(illust)
-                        post = illust.illust
-                        user = self.pixiv_api.user_detail(
-                            post.user['id'], req_auth=True)
-                        handle = str(post.user['id'])
-                        if user.profile['twitter_account']:
-                            username = user.profile['twitter_account']
-                            handle = "@{}@twitter.com".format(username)
-                        if user.profile['pawoo_url']:
-                            # resolve redirected url
-                            r = requests.get(user.profile['pawoo_url'])
-                            username = r.url.split("@")[1]
-                            handle = "@{}@pawoo.net".format(username)
+                    image = self.danbooru_info(source)
                 elif re_pixiv.search(source) and self.pixiv_api:
                     # currently pixiv downloading only works while logged in to
                     # pixiv
-                    id = source.split('id=')[1]
-                    illust = self.pixiv_api.illust_detail(
-                        id, req_auth=True)
-                    logger.debug(illust)
-                    post = illust.illust
-
-                    file_url = post.image_urls[
-                        'large'].replace("/c/600x1200_90", '')
-                    path = "images/pixiv/" + id + ".jpg"
-                    paths.append(path)
-
-                    if not os.path.isdir("images/pixiv"):
-                        os.makedirs("images/pixiv")
-                    self.pixiv_api.download(
-                        file_url, path="images/pixiv/", name=id + ".jpg")
-
-                    name = post.user['name']
-                    handle = str(post.user['id'])
-                    user = self.pixiv_api.user_detail(
-                        int(handle), req_auth=True)
-                    if user.profile['twitter_account']:
-                        username = user.profile['twitter_account']
-                        handle = "@{}@twitter.com".format(username)
-                    if user.profile['pawoo_url']:
-                        # resolve redirected url
-                        r = requests.get(user.profile['pawoo_url'])
-                        username = r.url.split("@")[1]
-                        handle = "@{}@pawoo.net".format(username)
-
-                    try:
-                        description = post.title
-                        if post.tags:
-                            description += "\n\n"
-                            for tag in post.tags:
-                                tag = tag['name'].replace(
-                                    "/", "_").replace("-", "_")
-                                description += '#' + tag + ' '
-                            description = description[:-1]
-                    except AttributeError:
-                        pass
+                    image = self.pixiv_info(source)
                 else:
                     # enter info manually
-                    while len(paths) < 4:
-                        path = input(
-                            "enter a relative image path or url:\n")
-                        if path:
-                            # instead of posting images mastodon links can be
-                            # boosted
-                            if path == "mastodon":
-                                # to be still validatable
-                                paths.append(path + ".png")
-                                break
-                            elif not os.path.isfile(path):
-                                path = download_image(path)
-                            paths.append(path)
-                        elif paths:
-                            break
-                    handle = input(
-                        "enter author handle, eg peterspark@pawoo.net (optional):\n")
-                    name = input(
-                        "enter author name (optional):\n")
-                    description = input("enter description (optional)\n")
-                image = {
-                    "source": source,
-                    "image_paths": paths,
-                    "author": {
-                        "handle": handle,
-                        "name": name
-                    },
-                    "description": description,
-                    "nsfw": nsfw
-                }
+                    image = self.manual_info(source)
+                if self.image_exists(image["source"]):
+                    print("already added!")
+                    continue  # jump into next loop
+
                 logger.debug("validating entered info...")
                 validate(image, self.schema_image)
                 logger.debug("info is valid")
+
                 self.db["images"].append(image)
                 with open(self.settings.db_path, 'w') as output:
                     json.dump(self.db, output)  # save to database
                 logger.info("{} images in db".format(len(self.db["images"])))
             else:
                 break
+
+    def manual_info(self, url):
+        paths = []
+        source = url
+
+        while len(paths) < 4:
+            path = input(
+                "enter a relative image path or url:\n")
+            if path:
+                # instead of posting images mastodon links can be
+                # boosted
+                if path == "mastodon":
+                    # to be still validatable
+                    paths.append(path + ".png")
+                    break
+                elif not os.path.isfile(path):
+                    path = download_image(path)
+                paths.append(path)
+            elif paths:
+                break
+        nsfw = input(
+            "Is this image not safe for work: false/true (empty = false)\n")
+        handle = input(
+            "enter author handle, eg peterspark@pawoo.net (optional):\n")
+        name = input(
+            "enter author name (optional):\n")
+        description = input("enter description (optional)\n")
+        cw = input("enter content warnings (optional)\n")
+        image = {
+            "source": source,
+            "image_paths": paths,
+            "author": {
+                "handle": handle,
+                "name": name
+            },
+            "description": description,
+            "nsfw": nsfw,
+            "cw": cw
+        }
+        return image
+
+    def twitter_info(self, url):
+        nsfw = False
+        paths = []
+        handle = ""
+        name = ""
+        description = ""
+        source = url
+
+        id = source.split('/')[-1]
+        tweet = self.tweet_api.get_status(id)
+        logger.debug(tweet)
+
+        # print(tweet.extended_entities)
+        for image in tweet.extended_entities['media']:
+            if image['type'] == 'photo':
+                file_url = image['media_url_https']
+
+                path = download_image(file_url)
+                paths.append(path)
+
+        handle = "@{}@twitter.com".format(tweet.user.screen_name)
+        name = tweet.user.name
+        # last word is always the shortened link to the media
+        if len(tweet.text.rsplit(' ', 1)):
+            description = tweet.text.rsplit(' ', 1)[0]
+        if tweet.possibly_sensitive:
+            nsfw = True
+
+        image = {
+            "source": source,
+            "image_paths": paths,
+            "author": {
+                "handle": handle,
+                "name": name
+            },
+            "description": description,
+            "nsfw": nsfw
+        }
+        return image
+
+    def danbooru_info(self, url):
+        nsfw = False
+        paths = []
+        handle = ""
+        name = ""
+        description = ""
+        source = url
+
+        if self.danbooru_api:
+            id = source.split("?")[0].split("/")[-1]
+            post = self.danbooru_api.post_show(id)
+        else:
+            url = source.split("?")[0] + ".json"
+            resp = requests.get(url)
+            post = json.loads(resp.text)
+        logger.debug(post)
+
+        try:
+            file_url = 'http://danbooru.donmai.us' + \
+                post['file_url']
+        except NameError:
+            file_url = post['source']
+        path = download_image(file_url)
+        paths.append(path)
+
+        # get name and handle if possible from pixiv, check if api
+        # shows pawoo handle
+        name = post['tag_string_artist']
+
+        if post['source']:
+            source = parse.unquote(post['source'])
+            if re_tweet.search(source):
+                username = re_tweet.search(source).group(1)
+                handle = get_handle(username)
+        if post['pixiv_id']:
+            source = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + \
+                str(post['pixiv_id'])
+            pixiv = self.pixiv_info(source)
+            source = pixiv["source"]
+            if pixiv["author"]["handle"]:
+                handle = pixiv["author"]["handle"]
+            if pixiv["author"]["name"]:
+                name = pixiv["author"]["name"]
+        if post['tag_string_copyright']:
+            description = '#' + \
+                post['tag_string_copyright'].replace(' ', ' #').replace(
+                    "#original", ' ').replace("_(series)", ' ')
+        if post['rating'] is not "s":
+            nsfw = True
+
+        image = {
+            "source": source,
+            "image_paths": paths,
+            "author": {
+                "handle": handle,
+                "name": name
+            },
+            "description": description,
+            "nsfw": nsfw
+        }
+        return image
+
+    def pixiv_info(self, url):
+        nsfw = False
+        paths = []
+        handle = ""
+        name = ""
+        description = ""
+        source = url
+
+        # currently pixiv downloading only works while logged in to
+        # pixiv
+        id = source.split('id=')[1]
+        illust = self.pixiv_api.illust_detail(
+            id, req_auth=True)
+        logger.debug(illust)
+        post = illust.illust
+
+        file_url = post.image_urls[
+            'large'].replace("/c/600x1200_90", '')
+        path = "images/pixiv/" + id + ".jpg"
+        paths.append(path)
+
+        if not os.path.isdir("images/pixiv"):
+            os.makedirs("images/pixiv")
+        self.pixiv_api.download(
+            file_url, path="images/pixiv/", name=id + ".jpg")
+
+        name = post.user['name']
+        handle = str(post.user['id'])
+        user = self.pixiv_api.user_detail(
+            int(handle), req_auth=True)
+        if user.profile['twitter_account']:
+            username = user.profile['twitter_account']
+            handle = get_handle(username)
+        if user.profile['pawoo_url']:
+            # resolve redirected url
+            r = requests.get(user.profile['pawoo_url'])
+            username = r.url.split("@")[1]
+            handle = get_handle(username, domain="pawoo.net")
+
+        try:
+            description = post.title
+            if post.tags:
+                description += "\n\n"
+                for tag in post.tags:
+                    tag = tag['name'].replace(
+                        "/", "_").replace("-", "_")
+                    description += '#' + tag + ' '
+                description = description[:-1]
+        except AttributeError:
+            pass
+
+        image = {
+            "source": source,
+            "image_paths": paths,
+            "author": {
+                "handle": handle,
+                "name": name
+            },
+            "description": description,
+            "nsfw": nsfw
+        }
+        return image
+
+    def image_exists(self, source):
+        exists = False
+        for image in self.db["images"]:
+            if source == image["source"]:
+                exists = True
+                break
+        if exists:
+            return True
+        else:
+            return False
 
 
 if __name__ == '__main__':
