@@ -30,6 +30,7 @@ re_pixiv = re.compile(
     r"https?://(www)?.pixiv.net/member_illust\.php\?mode=medium&illust_id=\d+")
 re_mastodon = re.compile(
     r"https?://(pawoo\.net|mastodon\.social)/\S+/\d+")
+re_link = re.compile(r"^(?:https?://)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$")
 
 
 def error_info(e):
@@ -150,7 +151,7 @@ class BotClass():
             source = image['posted']
         except KeyError:
             posted = False
-        if paths[0] == "mastodon.png" or posted:
+        if paths[0] == "mastodon.png" or posted or re_mastodon.search(source):
             # if already posted or a mastodon link boost original toot
             # status_id = source.split("/")[-1]  # not sure if ids work like
             # this
@@ -293,7 +294,9 @@ class BotClass():
 
     def manual_info(self, url):
         paths = []
-        source = url
+        source = url.strip()
+        additional = []
+        link = ""
 
         while len(paths) < 4:
             path = input(
@@ -312,22 +315,31 @@ class BotClass():
                 break
         nsfw = input(
             "Is this image not safe for work: false/true (empty = false)\n")
+        if nsfw.lower() == "true" or nsfw.lower() == "y" or nsfw.lower() == "yes":
+            nsfw = True
+        else:
+            nsfw = False
         handle = input(
             "enter author handle, eg peterspark@pawoo.net (optional):\n")
         name = input(
             "enter author name (optional):\n")
+        while True:
+            link = input("Additional links? (optional)")
+            additional.append(link)
+            if not link.strip():
+                break
         description = input("enter description (optional)\n")
         cw = input("enter content warnings (optional)\n")
         image = {
             "source": source,
             "image_paths": paths,
             "author": {
-                "handle": handle,
-                "name": name
+                "handle": handle.strip(),
+                "name": name.strip()
             },
-            "description": description,
+            "description": description.strip(),
             "nsfw": nsfw,
-            "cw": cw
+            "cw": cw.strip()
         }
         return image
 
@@ -363,10 +375,10 @@ class BotClass():
             "source": source,
             "image_paths": paths,
             "author": {
-                "handle": handle,
-                "name": name
+                "handle": handle.strip(),
+                "name": name.strip()
             },
-            "description": description,
+            "description": description.strip(),
             "nsfw": nsfw
         }
         return image
@@ -377,10 +389,10 @@ class BotClass():
         handle = ""
         name = ""
         description = ""
-        source = url
+        source = url.strip().split("?")[0]
 
         if self.danbooru_api:
-            id = source.split("?")[0].split("/")[-1]
+            id = source.split("/")[-1]
             post = self.danbooru_api.post_show(id)
         else:
             url = source.split("?")[0] + ".json"
@@ -400,8 +412,10 @@ class BotClass():
         # shows pawoo handle
         name = post['tag_string_artist']
 
+
         if post['source']:
-            source = parse.unquote(post['source'])
+            if re_link.search(parse.unquote(post['source'])):
+                source = parse.unquote(post['source'])
             if re_tweet.search(source):
                 username = re_tweet.search(source).group(1)
                 handle = get_handle(username)
@@ -425,10 +439,10 @@ class BotClass():
             "source": source,
             "image_paths": paths,
             "author": {
-                "handle": handle,
-                "name": name
+                "handle": handle.strip(),
+                "name": name.strip()
             },
-            "description": description,
+            "description": description.strip(),
             "nsfw": nsfw
         }
         return image
@@ -439,7 +453,7 @@ class BotClass():
         handle = ""
         name = ""
         description = ""
-        source = url
+        source = url.strip()
 
         # currently pixiv downloading only works while logged in to
         # pixiv
@@ -488,10 +502,10 @@ class BotClass():
             "source": source,
             "image_paths": paths,
             "author": {
-                "handle": handle,
-                "name": name
+                "handle": handle.strip(),
+                "name": name.strip()
             },
-            "description": description,
+            "description": description.strip(),
             "nsfw": nsfw
         }
         return image
