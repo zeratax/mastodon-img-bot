@@ -30,7 +30,8 @@ re_pixiv = re.compile(
     r"https?://(www)?.pixiv.net/member_illust\.php\?mode=medium&illust_id=\d+")
 re_mastodon = re.compile(
     r"https?://(pawoo\.net|mastodon\.social)/\S+/\d+")
-re_link = re.compile(r"^(?:https?://)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$")
+re_link = re.compile(
+    r"^(?:https?://)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$")
 
 
 def error_info(e):
@@ -265,7 +266,16 @@ class BotClass():
                 # if url is part of these automatically retrieve image and
                 # additional info
                 if re_mastodon.search(source):
-                    paths.append("mastodon.png")
+                    image = {
+                        "source": source,
+                        "image_paths": ["mastodon.png"],
+                        "author": {
+                            "handle": "",
+                            "name": ""
+                        },
+                        "description": "",
+                        "nsfw": ""
+                    }
                 elif re_twitter.search(source) and self.tweet_api:
                     image = self.twitter_info(source)
                 elif re_danbooru.search(source):
@@ -353,12 +363,16 @@ class BotClass():
 
         id = source.split('/')[-1]
         tweet = self.tweet_api.get_status(id)
-        logger.debug(tweet)
+        logger.debug(tweet.extended_entities['media'])
 
-        # print(tweet.extended_entities)
-        for image in tweet.extended_entities['media']:
-            if image['type'] == 'photo':
-                file_url = image['media_url_https']
+        for media in tweet.extended_entities['media']:
+            if media['type'] == 'photo':
+                file_url = media['media_url_https']
+
+                path = download_image(file_url)
+                paths.append(path)
+            else:
+                file_url = media['video_info']['variants'][0]['url']
 
                 path = download_image(file_url)
                 paths.append(path)
@@ -411,7 +425,6 @@ class BotClass():
         # get name and handle if possible from pixiv, check if api
         # shows pawoo handle
         name = post['tag_string_artist']
-
 
         if post['source']:
             if re_link.search(parse.unquote(post['source'])):
