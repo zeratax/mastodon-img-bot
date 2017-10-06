@@ -9,6 +9,5 @@
                 "$ref": "image.json"
             }
         }
-    },
-    "required": ["images"]
+    }
 }

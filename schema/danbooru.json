@@ -2,7 +2,7 @@
     "id": "danbooru.json",
     "$schema": "http://json-schema.org/draft-06/schema#",
     "type": "object",
-    "required": ["token"],
+    "required": ["token", "username"],
     "properties": {
         "token": {
             "type": "string",

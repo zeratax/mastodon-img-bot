@@ -54,5 +54,5 @@
             "type": "boolean"
         }
     },
-    "required": [ "access_token", "domain", "db_path" ]
+    "required": [ "access_token", "client_id", "client_secret", "domain", "db_path" ]
 }
