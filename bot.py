@@ -142,20 +142,24 @@ class BotClass():
     def post_toot(self):
         logger.info("creating new toot...")
         self.load_images()
-        logger.debug("choosing random image...")
-        image = random.choice(self.db['images'])
-        logger.debug(image)
-        source = image['source']
-        paths = image['image_paths']
-        try:
-            posted = True
-            source = image['posted']
-        except KeyError:
-            posted = False
+        image = {}
+        while not image:
+            logger.debug("choosing random image...")
+            image = random.choice(self.db['images'])
+            logger.debug(image)
+            source = image['source']
+            paths = image['image_paths']
+            try:
+                source = image['posted']
+                posted = True
+                # to reduce boosting repeat process in 70% of cases
+                # if the image has already been posted
+                if random.randint(0, 100) < 70:
+                    image = {}
+            except KeyError:
+                posted = False
+        # check if already posted or a mastodon link to boost original toot
         if paths[0] == "mastodon.png" or posted or re_mastodon.search(source):
-            # if already posted or a mastodon link boost original toot
-            # status_id = source.split("/")[-1]  # not sure if ids work like
-            # this
             search = self.mastodon_api.search(source, resolve=True)
             logger.debug(search)
             status_id = search['statuses'][0]['id']
@@ -169,7 +173,7 @@ class BotClass():
                 name, handle, source)
             try:
                 additional = image['additional']
-                for link in image['additional']:
+                for link in additional:
                     status += "\n" + link
             except KeyError:
                 pass
@@ -250,12 +254,7 @@ class BotClass():
         while True:
             logger.debug("adding Image to db")
             # logger.debug(self.db)
-            exists = False
-            nsfw = False
-            paths = []
-            handle = ""
-            name = ""
-            description = ""
+
             source = input("enter image source (leave empty to abort):\n")
             if source:
                 self.load_images()
@@ -274,7 +273,7 @@ class BotClass():
                             "name": ""
                         },
                         "description": "",
-                        "nsfw": ""
+                        "nsfw": False
                     }
                 elif re_twitter.search(source) and self.tweet_api:
                     image = self.twitter_info(source)
@@ -334,7 +333,7 @@ class BotClass():
         name = input(
             "enter author name (optional):\n")
         while True:
-            link = input("Additional links? (optional)")
+            link = input("Additional links? (optional):\n")
             additional.append(link)
             if not link.strip():
                 break
@@ -444,7 +443,7 @@ class BotClass():
         if post['tag_string_copyright']:
             description = '#' + \
                 post['tag_string_copyright'].replace(' ', ' #').replace(
-                    "#original", ' ').replace("_(series)", ' ')
+                    "#original", ' ').replace("_(series)", ' ').replace("-", "_")
         if post['rating'] is not "s":
             nsfw = True
 
