@@ -29,7 +29,7 @@ re_danbooru = re.compile(r"https?://danbooru\.donmai\.us/posts/\d+")
 re_pixiv = re.compile(
     r"https?://(www)?.pixiv.net/member_illust\.php\?mode=medium&illust_id=\d+")
 re_mastodon = re.compile(
-    r"https?://(pawoo\.net|mastodon\.social)/\S+/\d+")
+    r"https?://(pawoo\.net|mastodon\.social|mstdn\.jp)/\S+/\d+")
 re_link = re.compile(
     r"^(?:https?://)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$")
 
