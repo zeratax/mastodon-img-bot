@@ -563,6 +563,8 @@ if __name__ == '__main__':
     # setup folders
     date_str = datetime.datetime.utcnow().strftime("%Y%m%d")
     time_str = datetime.datetime.utcnow().strftime("%X")
+    if not os.path.isdir("log"):
+        os.makedirs("log")
     if not os.path.isdir("log/{}".format(date_str)):
         os.makedirs("log/{}".format(date_str))
     if not os.path.isdir("images"):
