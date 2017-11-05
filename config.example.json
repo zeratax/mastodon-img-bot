@@ -8,7 +8,6 @@
     "db_path": "db.json",
     "respond": false,
     "offset_min": 10,
-    "tries": 5,
     "accounts": {
         "pixiv":{
             "username": "ZerataX",

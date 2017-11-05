@@ -46,10 +46,6 @@
             "type": "number",
             "minimum": 1
         },
-        "tries": {
-            "type": "number",
-            "minimum": 1
-        },
         "respond": {
             "type": "boolean"
         }
