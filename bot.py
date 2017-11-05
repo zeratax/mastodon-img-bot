@@ -523,15 +523,10 @@ class BotClass():
         return image
 
     def image_exists(self, source):
-        exists = False
         for image in self.db["images"]:
             if source == image["source"]:
-                exists = True
-                break
-        if exists:
-            return True
-        else:
-            return False
+                return True
+        return False
 
 
 if __name__ == '__main__':
