@@ -1,4 +1,6 @@
 # Mastodon Image Bot
+
+makes use of [Mastodon.py](https://github.com/halcy/Mastodon.py), [tweepy](https://github.com/tweepy/tweepy), [pixivpy](https://github.com/upbit/pixivpy) and [pybooru](https://github.com/LuqueDaniel/pybooru)
 ```
 $ python bot.py -h
 usage: bot.py [-h] [-c FILE] [-a] [-p] [-v]
